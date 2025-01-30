@@ -2,6 +2,19 @@
 ; CREATED: 30-01-2025
 ; EDITED: 30-01-2025
 
+; COMPILE AND RUN THE PROGRAM:
+;	(1) Assemble and link the code
+;		- use nasm to assemble it into an object file:
+;		[nasm -f elf64 simple_calc.asm -o simple_calc.o]  
+;			>> '-f elf64' tells 'nasm' to generate an object file in the 64-bit ELF format
+;			>> '-o simple_calc.o' specifies the output file
+;	(2) Link the object file and create an executable
+;		- use gcc to accomblish this
+;		[ld simple_calc.o -o simple_calc.a]
+;			>> 'simple_calc.o' is your object file from the previous step
+;			>> '-o simple_calc.a' specifies the output executable
+;	(3) Run the program
+;		[./simple_calc.a]
 
 ;///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -36,13 +49,16 @@ section .data
 	tmp: db 0,0;
 
 	first_number db "Please enter your first number: ", 0dh, 0ah
-	first_number_length db equ $-first_number
+	first_number_length equ $-first_number
+
+	second_number db "Please enter your second number: ", 0dh, 0ah
+	second_number_length equ $-second_number
 
 	; temporary variables to store the first and second numbers
 	first_temp: db 0,0;
 	second_temp: db 0,0;
 
-	answer db "Answer of: "
+	answer db "Answer of"
 	answer_length equ $-answer
 
 	minus db " - "
@@ -69,22 +85,9 @@ _start:
 		call welcome_message	; func to display welcome message
 		call get_choice			; func to display choice message
 		call operators			; func to let the user choose an operator
-
-		; compare input to list of valid operators and jump to the relevant funcition
-		cmp byte[rsi], '1' 		; compare (cmp) the input to 1, if true, jump to the Add func
-		je Add					; jump if equal (je) to Add func
-
-		cmp byte[rsi], '2'
-		je Subtract				; jump if equal (je) to Subtract func
-
-		cmp byte[rsi], '3'
-		je Multiply				; jump if equal (je) to Multiply func
-
-		cmp byte[rsi], '4'
-		je Divide				; jump if equal (je) to Divide func
-
-		cmp byte[rsi], '5'
-		je Exit					; jump if equal (je) to Exit func
+		call get_input			; func to get the users input for operation choice
+		call compare_input
+		jmp LOOP
 
 		; func to diplay welcom message
 		welcome_message:
@@ -121,9 +124,26 @@ _start:
 			mov rdx, 2  			; 2 bytes >> 1 for input number, 1 for newline
 			syscall					; syscall to output the message
 
+		compare_input:
+			; compare input to list of valid operators and jump to the relevant funcition
+			cmp byte[rsi], '1' 		; compare (cmp) the input to 1, if true, jump to the Add func
+			je Add					; jump if equal (je) to Add func
+
+			cmp byte[rsi], '2'
+			je Subtract				; jump if equal (je) to Subtract func
+
+			;cmp byte[rsi], '3'
+			;je Multiply				; jump if equal (je) to Multiply func
+
+			;cmp byte[rsi], '4'
+			;je Divide				; jump if equal (je) to Divide func
+
+			cmp byte[rsi], '5'
+			je Exit					; jump if equal (je) to Exit func
+
 		; func to handle additon operations
 		Add:
-			; capture first number
+			; capture the first number
 
 			mov rax, 0x1					; set sys_call to sys_write
 			mov rdi, 1  					; 1 = stdout (console)
@@ -143,7 +163,7 @@ _start:
 											;	   instead of needing to access memory repeatedly
 											;	>> regiters are not volitile like memory
 
-			; capture second number
+			; capture the second number
 
 			mov rax, 0x1					; set sys_call to sys_write
 			mov rdi, 1  					; 1 = stdout (console)
@@ -169,8 +189,9 @@ _start:
 			sub r8, 48						; subtract 48 of the content to get the actual (numeric) value in ASCII
 			sub r9, 48						; subtract 48 of the content to get the actual (numeric) value in ASCII
 
+			; perform additon
 			mov r10, r8						; move r8 into register r10
-			add r10, r9						; add r9 to r10 and store it in r10
+			add r8, r9						; add r9 to r10 and store it in r10
 
 			pop r9							; remove r9 from the stack (restores original memory address)
 			pop r8							; remove r8 from the stack (restores original memory address)
@@ -212,10 +233,12 @@ _start:
 			mov rdx, equals_length
 			syscall
 
-			; display r10 content (answer)
+			mov [rsp+8], r10
+
+			; display  content (answer)
 			mov rax, 0x1
 			mov rdi, 1
-			mov rsi, r10
+			mov rsi, [rsp+8]
 			mov rdx, 1
 			syscall
 
@@ -322,4 +345,10 @@ _start:
 			jmp LOOP		; jump back to the main program loop
 
 
+		; func to exit the program safely
+		Exit:
+			mov rax, 60			; 60 is sys_exit in syscall(2)
+			mov rdi, 0  		
+			syscall
+			sysexit
 ;///////////////////////////////////////////////////////////////////////////////////////////////////
